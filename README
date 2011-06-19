@@ -1,5 +1,5 @@
 fusefs-cloudstorage
-========
+-------------------
 fusefs-cloudstorage is a FUSE-based filesystem providing
 access to various cloud storages like Rackspace CloudFiles
 and Amazon S3.

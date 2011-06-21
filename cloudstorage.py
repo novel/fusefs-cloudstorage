@@ -79,7 +79,7 @@ class CloudStorageFS(fuse.Fuse):
         elif 3 == len(path_tokens):
             container_name, object_name = path_tokens[1], path_tokens[2]
             obj = self.storage_handle.get_object(container_name, object_name)
-            
+
             st.st_mode = stat.S_IFREG | 0444
             st.st_nlink = 1
             st.st_size = obj.size
@@ -149,7 +149,7 @@ class CloudStorageFS(fuse.Fuse):
             return -errno.EPERM
         elif 2 == len(path_tokens):
             container_name = path_tokens[1]
-   
+
             try:
                 container = self.storage_handle.get_container(container_name)
             except ContainerDoesNotExistError:

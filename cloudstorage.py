@@ -12,8 +12,11 @@ except ImportError:
     pass
 import fuse
 
+from libcloud.common.types import InvalidCredsError
 from libcloud.storage.types import (Provider,
-        ContainerDoesNotExistError, ObjectDoesNotExistError)
+        ContainerDoesNotExistError,
+        ObjectDoesNotExistError,
+        )
 from libcloud.storage.providers import get_driver
 
 fuse.fuse_python_api = (0, 2)
@@ -42,12 +45,14 @@ class CloudStorageFS(fuse.Fuse):
         logging.basicConfig(filename='storage.log', level=logging.DEBUG)
         logging.debug("Starting CloudStorageFS")
 
+    def make_connection(self):
+        CloudFiles = get_driver(getattr(Provider, self.driver))
+        self._storage_handle = CloudFiles(self.access_id, self.secret)
+
     @property
     def storage_handle(self):
         if not self._storage_handle:
-            CloudFiles = get_driver(getattr(Provider, self.driver))
-
-            self._storage_handle = CloudFiles(self.access_id, self.secret)
+            self.make_connection
 
         return self._storage_handle
 
@@ -211,6 +216,9 @@ class CloudStorageFS(fuse.Fuse):
             response = ''
         return response
 
+    def unlink(self, path):
+        logging.debug("unlink(path='%s')" % (path,))
+
 def main():
     usage="""
 cloud storage filesystem
@@ -233,6 +241,12 @@ cloud storage filesystem
     if not (hasattr(server, 'driver') and hasattr(server, 'access_id') and \
             hasattr(server, 'secret')):
         print >>sys.stderr, "Please specify driver, access_id and secret."
+        sys.exit(1)
+
+    try:
+        server.make_connection()
+    except Exception, err:
+        print >>sys.stderr, "Cannot connect to cloud storage: %s" % str(err)
         sys.exit(1)
 
     server.main()

@@ -193,7 +193,7 @@ class CloudStorageFS(fuse.Fuse):
         try:
             container = self.storage_handle.get_container(container_name)
             obj = container.get_object(object_name)
-        except ContainerDoesNotExistError, ObjectDoesNotExistError:
+        except (ContainerDoesNotExistError, ObjectDoesNotExistError):
             return -errno.ENOENT
 
         try:

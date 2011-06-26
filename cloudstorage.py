@@ -60,6 +60,16 @@ class CloudStorageFS(fuse.Fuse):
         return [container.name for container in
                 self.storage_handle.list_containers()]
 
+    def _get_object(self, path_tokens):
+        """Return an object instance from path_tokens (i.e. result
+        of path.split('/') or None if object doesn't exist"""
+        container_name, object_name = path_tokens[1], path_tokens[2]
+        try:
+            container = self.storage_handle.get_container(container_name)
+            return container.get_object(object_name)
+        except (ContainerDoesNotExistError, ObjectDoesNotExistError):
+            return None
+
     def getattr(self, path):
         logging.debug("getattr(path='%s')" % path)
 
@@ -218,6 +228,19 @@ class CloudStorageFS(fuse.Fuse):
 
     def unlink(self, path):
         logging.debug("unlink(path='%s')" % (path,))
+
+        try:
+            path_tokens = path.split('/')
+            if 3 != len(path_tokens):
+                return
+
+            obj = self._get_object(path_tokens)
+            if not obj:
+                return -errno.ENOENT
+
+            obj.delete()
+        except Exception:
+            logging.exception("error while processing unlink()")
 
 def main():
     usage="""

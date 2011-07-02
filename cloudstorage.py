@@ -5,6 +5,7 @@ import sys
 import stat
 import errno
 import logging
+import StringIO
 
 try:
     import _find_fuse_parts
@@ -38,6 +39,7 @@ class CloudStat(fuse.Stat):
 
 class CloudStorageFS(fuse.Fuse):
     _storage_handle = None
+    _objects_to_create = []
 
     def __init__(self, *args, **kwargs):
         fuse.Fuse.__init__(self, *args, **kwargs)
@@ -79,6 +81,12 @@ class CloudStorageFS(fuse.Fuse):
             st.st_mode = stat.S_IFDIR | 0755
             st.st_nlink = 2
             return st
+        elif path in self._objects_to_create:
+            logging.debug("getattr(path='%s'): file is scheduled for creation" % (path))
+            st.st_mode = stat.S_IFREG | 0644
+            st.st_nlink = 1
+            st.st_size = 0
+            return st
 
         path_tokens = path.split('/')
 
@@ -92,12 +100,22 @@ class CloudStorageFS(fuse.Fuse):
             else:
                 return -errno.ENOENT
         elif 3 == len(path_tokens):
-            container_name, object_name = path_tokens[1], path_tokens[2]
-            obj = self.storage_handle.get_object(container_name, object_name)
+            #container_name, object_name = path_tokens[1], path_tokens[2]
+            #obj = self.storage_handle.get_object(container_name, object_name)
 
-            st.st_mode = stat.S_IFREG | 0444
-            st.st_nlink = 1
-            st.st_size = obj.size
+            obj = self._get_object(path_tokens)
+
+            if obj:
+                st.st_mode = stat.S_IFREG | 0444
+                st.st_nlink = 1
+                st.st_size = obj.size
+            else:
+                # getattr() might be called for a new file which doesn't
+                # exist yet, so we need to make it writable in such case
+                #st.st_mode = stat.S_IFREG | 0644
+                #st.st_nlink = 1
+                #st.st_size = 0
+                return -errno.ENOENT
             return st
 
         return -errno.ENOENT
@@ -179,23 +197,44 @@ class CloudStorageFS(fuse.Fuse):
         elif 3 <= len(path_tokens):
             return -errno.EOPNOTSUPP
 
+    def mknod(self, path, mode, dev):
+        logging.debug("mknod(path='%s', mode='%s', dev='%s')" % (path, mode, dev))
+
+        try:
+            path_tokens = path.split('/')
+            if 3 != len(path_tokens):
+                return -errno.EPERM
+
+            container_name = path_tokens[1]
+            object_name = path_tokens[2]
+
+            self.storage_handle.upload_object_via_stream(StringIO.StringIO('\n'),
+                    self.storage_handle.get_container(container_name),
+                    object_name,
+                    extra={"content_type": "application/octet-stream"})
+            return 0
+        except Exception:
+            logging.exception("exception in mknod()")
+
     def open(self, path, flags):
         logging.debug("open(path='%s', flags='%s')" % (path, flags))
+        return 0
         path_tokens = path.split('/')
 
         if 3 != len(path_tokens):
+            logging.warning("path_tokens != 3")
             return -errno.EOPNOTSUPP
 
-        container_name, object_name = path_tokens[1], path_tokens[2]
         try:
-            container = self.storage_handle.get_container(container_name)
-            obj = container.get_object(object_name)
-        except ContainerDoesNotExistError, ObjectDoesNotExistError:
-            return -errno.ENOENT
-
-        accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
-        if (flags & accmode) != os.O_RDONLY:
-            return -errno.EACCES
+            obj = self._get_object(path_tokens)
+            # we allow opening existing files in read-only mode
+            if obj:
+                accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
+                if (flags & accmode) != os.O_RDONLY:
+                    return -errno.EACCES
+            return 0
+        except Exception:
+            logging.exception("exception in open()")
 
     def read(self, path, size, offset):
         logging.debug("read(path='%s', size=%s, offset=%s)" % (path, size, offset))
@@ -225,6 +264,9 @@ class CloudStorageFS(fuse.Fuse):
         else:
             response = ''
         return response
+
+    def write(self, path, buff, offset):
+        logging.debug("write(path='%s', buff=<skip>, offset='%s')" % (path, offset))
 
     def unlink(self, path):
         logging.debug("unlink(path='%s')" % (path,))

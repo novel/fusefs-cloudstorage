@@ -22,6 +22,7 @@ from libcloud.storage.providers import get_driver
 
 fuse.fuse_python_api = (0, 2)
 
+write_cache = {}
 
 class CloudStat(fuse.Stat):
 
@@ -100,9 +101,6 @@ class CloudStorageFS(fuse.Fuse):
             else:
                 return -errno.ENOENT
         elif 3 == len(path_tokens):
-            #container_name, object_name = path_tokens[1], path_tokens[2]
-            #obj = self.storage_handle.get_object(container_name, object_name)
-
             obj = self._get_object(path_tokens)
 
             if obj:
@@ -226,12 +224,12 @@ class CloudStorageFS(fuse.Fuse):
             return -errno.EOPNOTSUPP
 
         try:
-            obj = self._get_object(path_tokens)
-            # we allow opening existing files in read-only mode
-            if obj:
-                accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
-                if (flags & accmode) != os.O_RDONLY:
-                    return -errno.EACCES
+#            obj = self._get_object(path_tokens)
+#            # we allow opening existing files in read-only mode
+#            if obj:
+#                accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
+#                if (flags & accmode) != os.O_RDONLY:
+#                    return -errno.EACCES
             return 0
         except Exception:
             logging.exception("exception in open()")
@@ -266,7 +264,21 @@ class CloudStorageFS(fuse.Fuse):
         return response
 
     def write(self, path, buff, offset):
+        # as cloudstorage does not provide object
+        # modification facilities, we need to delete an old one
+        # and create a new one with the old content
+
         logging.debug("write(path='%s', buff=<skip>, offset='%s')" % (path, offset))
+
+        try:
+            if path not in write_cache:
+                write_cache[path] = [buff,]
+            else:
+                write_cache.append(buff)
+
+            return len(buff)
+        except Exception:
+            logging.exception("exception in write()")
 
     def unlink(self, path):
         logging.debug("unlink(path='%s')" % (path,))
@@ -283,6 +295,33 @@ class CloudStorageFS(fuse.Fuse):
             obj.delete()
         except Exception:
             logging.exception("error while processing unlink()")
+
+    def release(self, path, flags):
+        logging.debug("release(path='%s', flags='%s')" % (path, flags))
+
+        try:
+            path_tokens = path.split("/")
+            container_name, object_name = path_tokens[1], path_tokens[2]
+
+            if len(write_cache[path]) > 0:
+                self.unlink(path)
+                self.storage_handle.upload_object_via_stream(StringIO.StringIO(''.join(write_cache[path])),
+                        self.storage_handle.get_container(container_name),
+                        object_name,
+                        extra={"content_type": "application/octet-stream"})
+                del write_cache[path]
+            return 0
+        except Exception:
+            logging.exception("exception in release()")
+
+    def truncate(self, path, size):
+        return 0
+
+    def utime(self, path, times):
+        return 0
+
+    def fsync(self, path, isfsyncfile):
+        return 0
 
 def main():
     usage="""

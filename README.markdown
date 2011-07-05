@@ -7,10 +7,10 @@ and Amazon S3.
 It is based on libcloud storage interface that appeared in
 libcloud 0.5.
 
-Usage
+Usage:
 
-./lc-fuse.py -f -o driver=CLOUDFILES_US -o access_id=$your_loging \
+    ./lc-fuse.py -f -o driver=CLOUDFILES_US -o access_id=$your_loging \
      -o secret=$your_pass mountpoint
 
-Author: Roman Bogorodskiy <bogorodskiy@gmail.com>
-Github: https://github.com/novel/fusefs-cloudstorage
+* Author: Roman Bogorodskiy <bogorodskiy@gmail.com>
+* Github: https://github.com/novel/fusefs-cloudstorage

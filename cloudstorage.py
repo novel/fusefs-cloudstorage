@@ -19,6 +19,9 @@ from libcloud.storage.types import (Provider,
         ObjectDoesNotExistError,
         )
 from libcloud.storage.providers import get_driver
+import libcloud.security
+
+libcloud.security.VERIFY_SSL_CERT = True
 
 fuse.fuse_python_api = (0, 2)
 

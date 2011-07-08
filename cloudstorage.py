@@ -296,11 +296,16 @@ class CloudStorageFS(fuse.Fuse):
                 return -errno.ENOENT
 
             obj.delete()
+            return 0
         except Exception:
             logging.exception("error while processing unlink()")
 
     def release(self, path, flags):
         logging.debug("release(path='%s', flags='%s')" % (path, flags))
+
+        # XXX: what's the nature of this?
+        if "-" == path:
+            return 0
 
         try:
             path_tokens = path.split("/")
@@ -313,6 +318,9 @@ class CloudStorageFS(fuse.Fuse):
                         object_name,
                         extra={"content_type": "application/octet-stream"})
                 del write_cache[path]
+            return 0
+        except KeyError:
+            logging.warning("no cached entry for path: %s" % path)
             return 0
         except Exception:
             logging.exception("exception in release()")

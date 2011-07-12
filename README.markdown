@@ -25,5 +25,7 @@ Here:
  * $your\_login and $your\_pass mean your login (access id, etc)  and password (secret)
    to your account
 
+Contants
+--------
 * Author: Roman Bogorodskiy <bogorodskiy@gmail.com>
 * Github: https://github.com/novel/fusefs-cloudstorage

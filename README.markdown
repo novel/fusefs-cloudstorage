@@ -15,8 +15,15 @@ Requirements
 Usage
 -----
 
-    ./lc-fuse.py -f -o driver=CLOUDFILES_US -o access_id=$your_loging \
+    ./cloudstorage.py -f -o driver=CLOUDFILES_US -o access_id=$your_login \
      -o secret=$your_pass mountpoint
+
+Here:
+
+ * CLOUDFILES\_US is a name of the driver. Plase use `cloudstorage.py -h` to get
+   list of available drivers.
+ * $your\_login and $your\_pass mean your login (access id, etc)  and password (secret)
+   to your account
 
 * Author: Roman Bogorodskiy <bogorodskiy@gmail.com>
 * Github: https://github.com/novel/fusefs-cloudstorage

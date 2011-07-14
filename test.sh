@@ -62,7 +62,6 @@ test_object_ops() {
 run_tests() {
 	echo "starting tests @ ${MOUNTPOINT}"
 	cd ${MOUNTPOINT}
-#	test_container_creation
 	for testname in ${TESTS}; do
 		test_func="test_${testname}"
 		start_time=`eval ${UNIXTIME}`
